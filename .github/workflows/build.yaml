@@ -6,27 +6,29 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    # This is crucial - set up proper emulation first
+    # Set up QEMU for emulation
     - name: Set up QEMU
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y qemu-user-static binfmt-support
-        sudo systemctl restart systemd-binfmt
+      uses: docker/setup-qemu-action@v3
+      with:
+        platforms: arm64
     
+    # Install Nix with proper settings
     - uses: cachix/install-nix-action@v22
       with:
         extra_nix_config: |
           experimental-features = nix-command flakes
           extra-platforms = aarch64-linux
           system-features = nixos-test benchmark big-parallel kvm
+          # This is crucial - allows system queries
+          sandbox = relaxed
     
-    - name: Verify emulation works
+    # Build with explicit system specification
+    - name: Build NixOS image
       run: |
-        nix eval --expr 'builtins.currentSystem'
-        file /proc/sys/fs/binfmt_misc/qemu-aarch64
-    
-    - name: Build image
-      run: nix build '.#nixosConfigurations.raspberry-pi.config.system.build.sdImage' --print-build-logs
+        nix build '.#nixosConfigurations.raspberry-pi.config.system.build.sdImage' \
+          --system aarch64-linux \
+          --impure \
+          --print-build-logs
     
     - uses: actions/upload-artifact@v4
       with:
