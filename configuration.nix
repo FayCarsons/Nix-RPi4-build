@@ -1,51 +1,49 @@
-{ config, pkgs, lib, ... }: {
-# Critical Disable ZFS to save build time
-  boot.supportedFilesystems.zfs = lib.mkForce false;
-  # Workaround for missing kernel modules
-  nixpkgs.overlays = [
-    (final: super: {
-      makeModulesClosure = x:
-        super.makeModulesClosure (x // {allowMissing = true;});
-    })
+{ config, pkgs, lib, modulesPath, ... }: {
+  imports = [
+    "${modulesPath}/installer/sd-card/sd-image-aarch64.nix"
   ];
+
+  # Essential Pi settings from the article
+  boot.supportedFilesystems.zfs = lib.mkForce false;
+  sdImage.compressImage = false;
   
-  nixpkgs.hostPlatform = "aarch64-linux";
-  nixpkgs.config.allowUnfree = true;
-  
-  # Basic system configuration
-  networking.hostName = "raspberry-pi";
-  time.timeZone = "America/New_York";  # Adjust as needed
-  
-  # Essential packages for Pi
+  nixpkgs = {
+    hostPlatform = "aarch64-linux";
+    config.allowUnfree = true;
+    overlays = [
+      (final: super: {
+        makeModulesClosure = x:
+          super.makeModulesClosure (x // {allowMissing = true;});
+      })
+    ];
+  };
+
+  networking = {
+    hostName = "raspberry-pi";
+    dhcpcd.enable = true;  # Simple networking instead of NetworkManager
+  };
+
+  time.timeZone = "America/New_York";
+
   environment.systemPackages = with pkgs; [
-    libraspberrypi
-    raspberrypi-eeprom
     vim
     git
+    libraspberrypi
+    raspberrypi-eeprom
   ];
-  
-  # Enable firmware
-  hardware.enableRedistributableFirmware = true;
-  
-  # Create your user (replace with your preferred username)
-  users.users.pi = {
-    isNormalUser = true;
-    extraGroups = ["wheel" "networkmanager"];
-    # Set initial password to empty (you'll set it on first boot)
-    initialHashedPassword = "";
-  };
-  
-  # Allow passwordless sudo
-  security.sudo.wheelNeedsPassword = false;
-  
-  # Enable SSH
+
   services.openssh = {
     enable = true;
     settings.PermitRootLogin = "no";
   };
-  
-  # Enable NetworkManager for easier WiFi setup
-  networking.networkmanager.enable = true;
-  
+
+  users.users.pi = {
+    isNormalUser = true;
+    extraGroups = ["wheel"];
+    initialHashedPassword = "";
+  };
+
+  security.sudo.wheelNeedsPassword = false;
+  hardware.enableRedistributableFirmware = true;
   system.stateVersion = "24.05";
 }
