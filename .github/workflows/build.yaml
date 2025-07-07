@@ -10,7 +10,7 @@ jobs:
         extra_nix_config: |
           extra-platforms = aarch64-linux
     - run: nix build '.#nixosConfigurations.raspberry-pi.config.system.build.sdImage'
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: rpi-image
         path: result/sd-image/
