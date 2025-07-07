@@ -10,6 +10,7 @@
     nixosConfigurations.raspberry-pi = nixpkgs.lib.nixosSystem {
       system = "aarch64-linux";
       modules = [
+        # This is what the article author found was necessary!
         nixos-hardware.nixosModules.raspberry-pi-4
         ./configuration.nix
       ];

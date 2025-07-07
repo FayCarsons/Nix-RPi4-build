@@ -1,49 +1,45 @@
 { config, pkgs, lib, modulesPath, ... }: {
   imports = [
     "${modulesPath}/installer/sd-card/sd-image-aarch64.nix"
+    # This was the missing piece!
   ];
 
-  # Essential Pi settings from the article
+  # The author found this was NECESSARY despite community feedback
+  # nixos-hardware.nixosModules.raspberry-pi-4 needs to be in the flake
+
   boot.supportedFilesystems.zfs = lib.mkForce false;
   sdImage.compressImage = false;
   
-  nixpkgs = {
-    hostPlatform = "aarch64-linux";
-    config.allowUnfree = true;
-    overlays = [
-      (final: super: {
-        makeModulesClosure = x:
-          super.makeModulesClosure (x // {allowMissing = true;});
-      })
-    ];
-  };
-
+  # The crucial overlay from the article
+  nixpkgs.overlays = [
+    (final: super: {
+      makeModulesClosure = x:
+        super.makeModulesClosure (x // {allowMissing = true;});
+    })
+  ];
+  
+  nixpkgs.hostPlatform = "aarch64-linux";
+  nixpkgs.config.allowUnfree = true;
+  
   networking = {
-    hostName = "raspberry-pi";
-    dhcpcd.enable = true;  # Simple networking instead of NetworkManager
+    hostName = "media-server";
+    dhcpcd.enable = true;
   };
-
-  time.timeZone = "America/New_York";
 
   environment.systemPackages = with pkgs; [
-    vim
-    git
     libraspberrypi
     raspberrypi-eeprom
   ];
-
-  services.openssh = {
-    enable = true;
-    settings.PermitRootLogin = "no";
-  };
-
+  
+  services.jellyfin.enable = true;
+  services.openssh.enable = true;
+  
   users.users.pi = {
     isNormalUser = true;
     extraGroups = ["wheel"];
     initialHashedPassword = "";
   };
-
-  security.sudo.wheelNeedsPassword = false;
+  
   hardware.enableRedistributableFirmware = true;
   system.stateVersion = "24.05";
 }
