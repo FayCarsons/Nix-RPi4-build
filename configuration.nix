@@ -4,8 +4,8 @@
     # This was the missing piece!
   ];
 
-  # The author found this was NECESSARY despite community feedback
-  # nixos-hardware.nixosModules.raspberry-pi-4 needs to be in the flake
+  # necessary
+  boot.kernelPackages = pkgs.linuxKernel.packages.linux_6_6;
 
   boot.supportedFilesystems.zfs = lib.mkForce false;
   sdImage.compressImage = false;
