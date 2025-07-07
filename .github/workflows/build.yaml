@@ -28,7 +28,7 @@ jobs:
     - name: Build image
       run: nix build '.#nixosConfigurations.raspberry-pi.config.system.build.sdImage' --print-build-logs
     
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: rpi-image
         path: result/sd-image/
