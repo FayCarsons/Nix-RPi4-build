@@ -1,0 +1,16 @@
+name: Build RPi Image
+on: [push]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: cachix/install-nix-action@v22
+      with:
+        extra_nix_config: |
+          extra-platforms = aarch64-linux
+    - run: nix build '.#nixosConfigurations.raspberry-pi.config.system.build.sdImage'
+    - uses: actions/upload-artifact@v3
+      with:
+        name: rpi-image
+        path: result/sd-image/
