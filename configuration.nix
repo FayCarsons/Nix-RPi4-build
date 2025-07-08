@@ -1,5 +1,5 @@
 { pkgs, ... }: {
-  system.stateVersion = "24.11";
+  system.stateVersion = "24.05";
   
   # Basic system settings
   time.timeZone = "America/New_York";
@@ -79,7 +79,7 @@
 
   # Disable all graphics/desktop stuff
   services.xserver.enable = false;
-  hardware.opengl.enable = false;
+  hardware.graphics.enable = false;
   
   # Disable audio entirely
   hardware.pulseaudio.enable = false;
