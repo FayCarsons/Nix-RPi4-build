@@ -2,11 +2,9 @@
 { pkgs, lib, ... }:
 
 {
-  # Use standard kernel - Pi 4 works with mainline
-  # but if it doesn't boot, we can switch to Pi-specific kernel
-  
-  # Basic boot configuration
+
   boot = {
+    kernelPackages = pkgs.linuxPackages_rpi4;
     loader.grub.enable = false;
     loader.generic-extlinux-compatible.enable = true;
     
@@ -23,10 +21,8 @@
       "usbhid"
       "vc4"
     ];
+    supportedFilesystems = lib.mkForce [ "ext4" "vfat" ];
   };
-
-  # Disable ZFS to avoid build issues
-  boot.supportedFilesystems = lib.mkForce [ "ext4" "vfat" ];
 
   # Basic networking
   networking = {
