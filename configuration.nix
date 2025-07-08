@@ -26,10 +26,22 @@
     };
   };
 
-  # Networking
+  # Networking - use simple wpa_supplicant instead of NetworkManager
   networking = {
     hostName = "kiggymedia";
-    networkmanager.enable = true;  # Use NetworkManager instead of manual config
+    useDHCP = false;
+    interfaces = {
+      eth0.useDHCP = true;
+      wlan0.useDHCP = true;
+    };
+    wireless = {
+      enable = true;
+      networks = {
+        "FiOS-WTPA7" = {
+          psk = "munch386wire040jag";
+        };
+      };
+    };
   };
 
   # File systems (this gets set up by the sd-image module)
