@@ -1,8 +1,15 @@
-{ pkgs, ... }: {
-  system.stateVersion = "24.05";
-  
-  # Basic system settings
+# configuration.nix - Based on working 2025 setup
+{ lib, pkgs, modulesPath, ... }: {
+  imports = [
+    # This is the key - use the stock sd-image module, not nixos-hardware
+    "${modulesPath}/installer/sd-card/sd-image-aarch64.nix"
+  ];
+
+  # System basics
+  system.stateVersion = "24.11";
   time.timeZone = "America/New_York";
+
+  # User setup
   users.users.root = {
     initialPassword = "root";
     openssh.authorizedKeys.keys = [
@@ -10,6 +17,7 @@
     ];
   };
 
+  # SSH
   services.openssh = {
     enable = true;
     settings = {
@@ -17,99 +25,71 @@
       PasswordAuthentication = true;
     };
   };
-  
-  # Networking configuration
+
+  # Networking
   networking = {
     hostName = "kiggymedia";
-    useDHCP = false;
-    interfaces = {
-      eth0.useDHCP = true;
-      wlan0.useDHCP = true;
-    };
+    networkmanager.enable = true;  # Use NetworkManager instead of manual config
+  };
 
-    wireless = {
-      enable = true;
-      networks = {
-        "FiOS-WTPA7" = {
-          psk = "munch386wire040jag";
-        };
-      };
+  # File systems (this gets set up by the sd-image module)
+  fileSystems = {
+    "/" = {
+      device = "/dev/disk/by-label/NIXOS_SD";
+      fsType = "ext4";
+      options = ["noatime"];
     };
   };
 
-  # Raspberry Pi 4 board configuration
-  raspberry-pi-nix.board = "bcm2711";
-  
-  hardware = {
-    raspberry-pi = {
-      config = {
-        all = {
-          base-dt-params = {
-            BOOT_UART = {
-              value = 1;
-              enable = true;
-            };
-            uart_2ndstage = {
-              value = 1;
-              enable = true;
-            };
-          };
-          dt-overlays = {
-            disable-bt = {
-              enable = true;
-              params = { };
-            };
-          };
-          # Using default direct kernel boot (no u-boot)
-        };
-      };
-    };
-  };
-
-  # Enhanced serial console and debug configuration
+  # Serial console configuration
   boot.kernelParams = [ 
     "console=serial0,115200" 
     "console=tty1"
     "debug"
     "ignore_loglevel"
-    "earlycon=uart8250,mmio32,0xfe215040"
-    "loglevel=7"
-    "earlyprintk"
   ];
 
-  # Disable all graphics/desktop stuff
-  services.xserver.enable = false;
-  hardware.opengl.enable = false;
-  
-  # Disable audio entirely
-  hardware.pulseaudio.enable = false;
-  security.rtkit.enable = false;
-  services.pipewire.enable = false;
-  
+  # Nix settings for building/caching
+  nix.settings = {
+    trusted-users = [ "root" ];
+    substituters = [ 
+      "https://cache.nixos.org"
+      "https://nix-community.cachix.org" 
+    ];
+    trusted-public-keys = [ 
+      "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
+      "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=" 
+    ];
+  };
+
+  # Workaround for missing kernel modules (common Pi issue)
+  nixpkgs = {
+    hostPlatform = lib.mkDefault "aarch64-linux";
+    config = {
+      allowUnfree = true;
+    };
+    overlays = [
+      # Fix for missing modules
+      (final: super: {
+        makeModulesClosure = x: super.makeModulesClosure (x // {allowMissing = true;});
+      })
+    ];
+  };
+
   # Minimal packages
   environment.systemPackages = with pkgs; [
     vim
-    git
     htop
-    screen  # Useful for serial console sessions
+    libraspberrypi  # Pi-specific tools
+    raspberrypi-eeprom  # For firmware updates
   ];
 
-  # Reduce system size and disable unnecessary features
+  # Disable things that cause build issues
   documentation.enable = false;
   documentation.nixos.enable = false;
-  
-  # Disable unnecessary services
-  services.udisks2.enable = false;
-  programs.command-not-found.enable = false;
-  xdg.autostart.enable = false;
-  xdg.mime.enable = false;
-  xdg.icons.enable = false;
-  xdg.sounds.enable = false;
-  
-  # Disable bluetooth completely
-  hardware.bluetooth.enable = false;
-  
-  # Minimal locale settings
-  i18n.defaultLocale = "en_US.UTF-8";
-  i18n.supportedLocales = [ "en_US.UTF-8/UTF-8" ];
+
+  # SD image specific settings
+  sdImage = {
+    compressImage = false;  # Faster builds
+  };
 }
