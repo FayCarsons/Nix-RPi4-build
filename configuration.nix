@@ -79,7 +79,7 @@
 
   # Disable all graphics/desktop stuff
   services.xserver.enable = false;
-  hardware.graphics.enable = false;
+  hardware.opengl.enable = false;
   
   # Disable audio entirely
   hardware.pulseaudio.enable = false;
