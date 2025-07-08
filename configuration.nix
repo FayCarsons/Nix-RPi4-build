@@ -1,10 +1,45 @@
-# configuration.nix - Simple Pi 4 config for nixos-generators
+# configuration.nix - Pi 4 config with custom filesystem layout
 { pkgs, lib, ... }:
 
 {
+  # Custom filesystem layout - might be needed for Pi 4 to boot properly
+  fileSystems = {
+    "/" = {
+      device = "none";
+      fsType = "tmpfs";
+      options = [
+        "defaults"
+        "size=512M"
+        "mode=755"
+      ];
+    };
+    "/persistent" = {
+      device = "/dev/disk/by-label/NIXOS_SD";
+      fsType = "ext4";
+      options = [
+        "data=journal"
+        "noatime"
+      ];
+      neededForBoot = true;
+    };
+    "/nix" = {
+      mountPoint = "/nix";
+      device = "/persistent/nix";
+      fsType = "none";
+      options = [ "bind" ];
+      depends = [ "/persistent" ];
+    };
+    "/boot" = {
+      device = "/dev/disk/by-label/FIRMWARE";
+      fsType = "vfat";
+    };
+  };
 
+  # Use Pi-specific kernel instead of mainline - needed for device tree compatibility
+  boot.kernelPackages = pkgs.linuxPackages_rpi4;
+  
+  # Basic boot configuration
   boot = {
-    kernelPackages = pkgs.linuxPackages_rpi4;
     loader.grub.enable = false;
     loader.generic-extlinux-compatible.enable = true;
     
@@ -21,8 +56,10 @@
       "usbhid"
       "vc4"
     ];
-    supportedFilesystems = lib.mkForce [ "ext4" "vfat" ];
   };
+
+  # Disable ZFS to avoid build issues
+  boot.supportedFilesystems = lib.mkForce [ "ext4" "vfat" ];
 
   # Basic networking
   networking = {
