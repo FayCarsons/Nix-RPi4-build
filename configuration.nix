@@ -1,6 +1,11 @@
+# configuration.nix - Simple Pi 4 config for nixos-generators
 { pkgs, lib, ... }:
 
 {
+  # Use standard kernel - Pi 4 works with mainline
+  # but if it doesn't boot, we can switch to Pi-specific kernel
+  
+  # Basic boot configuration
   boot = {
     loader.grub.enable = false;
     loader.generic-extlinux-compatible.enable = true;
@@ -9,7 +14,8 @@
       "console=ttyAMA0,115200"
       "console=tty1"
     ];
-
+    
+    # Essential Pi 4 modules
     initrd.availableKernelModules = [
       "pcie_brcmstb"
       "reset-raspberrypi" 
@@ -19,19 +25,23 @@
     ];
   };
 
+  # Disable ZFS to avoid build issues
   boot.supportedFilesystems = lib.mkForce [ "ext4" "vfat" ];
 
+  # Basic networking
   networking = {
     hostName = "kiggymedia";
     useDHCP = false;
     interfaces.eth0.useDHCP = true;
   };
 
+  # SSH access
   services.openssh = {
     enable = true;
     settings.PermitRootLogin = "yes";
   };
 
+  # Root user
   users.users.root = {
     initialPassword = "root";
     openssh.authorizedKeys.keys = [
@@ -39,8 +49,10 @@
     ];
   };
 
+  # Hardware support
   hardware.enableRedistributableFirmware = true;
 
+  # Minimal packages
   environment.systemPackages = with pkgs; [
     vim
     htop
