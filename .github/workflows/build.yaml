@@ -19,8 +19,13 @@ jobs:
           experimental-features = nix-command flakes
           extra-platforms = aarch64-linux
           system-features = nixos-test benchmark big-parallel kvm
-          # This is crucial - allows system queries
           sandbox = relaxed
+    
+    # Add cachix for nix-community cache
+    - uses: cachix/cachix-action@v12
+      with:
+        name: nix-community
+        # No auth token needed for public cache
     
     # Build with explicit system specification
     - name: Build NixOS image

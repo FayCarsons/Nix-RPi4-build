@@ -3,15 +3,15 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
-    nixos-hardware.url = "github:NixOS/nixos-hardware/master";
+    raspberry-pi-nix.url = "github:nix-community/raspberry-pi-nix";
   };
 
-  outputs = { self, nixpkgs, nixos-hardware }: {
+  outputs = { self, nixpkgs, raspberry-pi-nix }: {
     nixosConfigurations.raspberry-pi = nixpkgs.lib.nixosSystem {
       system = "aarch64-linux";
       modules = [
-        # This is what the article author found was necessary!
-        nixos-hardware.nixosModules.raspberry-pi-4
+        raspberry-pi-nix.nixosModules.raspberry-pi
+        raspberry-pi-nix.nixosModules.sd-image
         ./configuration.nix
       ];
     };

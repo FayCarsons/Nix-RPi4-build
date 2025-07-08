@@ -1,38 +1,42 @@
-{ config, pkgs, lib, modulesPath, ... }: {
-  imports = [
-    "${modulesPath}/installer/sd-card/sd-image-aarch64.nix"
-  ];
+{ config, pkgs, lib, ... }: {
+  # Remove the sd-card import - the flake handles this now
+  # imports = [
+  #   "${modulesPath}/installer/sd-card/sd-image-aarch64.nix"
+  # ];
 
+  # Pi 4 specific configuration
+  hardware.raspberry-pi.config = {
+    all = {
+      options = {
+        # Enable serial console
+        enable_uart = {
+          enable = true;
+          value = true;
+        };
+        # Use 64-bit mode
+        arm_64bit = {
+          enable = true;
+          value = true;
+        };
+      };
+    };
+  };
+
+  # Boot configuration - let raspberry-pi-nix handle this
   boot.supportedFilesystems.zfs = lib.mkForce false;
-  boot.kernelParams = [ 
-    "console=tty0"
-    "console=ttyAMA0,115200"
-    "console=ttyS0,115200"
-    "loglevel=7"
-    "earlyprintk"
-    "debug"
-    "ignore_loglevel"
-  ]; 
-
-  sdImage.compressImage = false;
   
-  nixpkgs.overlays = [
-    (final: super: {
-      makeModulesClosure = x:
-        super.makeModulesClosure (x // {allowMissing = true;});
-    })
+  # Serial console for debugging
+  boot.kernelParams = [ 
+    "console=ttyAMA0,115200" 
+    "console=tty0" 
+    "loglevel=7"
   ];
+  
+  # SD image settings
+  sdImage.compressImage = false;
   
   nixpkgs.hostPlatform = "aarch64-linux";
   nixpkgs.config.allowUnfree = true;
-  
-  fileSystems = {
-    "/" = {
-      device = "/dev/disk/by-label/NIXOS_SD";
-      fsType = "ext4";
-      options = ["noatime"];
-    };
-  };
   
   networking = {
     hostName = "media-server";
@@ -54,5 +58,5 @@
   };
   
   hardware.enableRedistributableFirmware = true;
-  system.stateVersion = "24.05";
+  system.stateVersion = "24.11";
 }
