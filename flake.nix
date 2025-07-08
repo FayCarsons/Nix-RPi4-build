@@ -13,9 +13,14 @@
     {
       nixosConfigurations.kiggymedia = nixpkgs.lib.nixosSystem {
         system = "aarch64-linux";
-        specialArgs = { inputs = { inherit raspberry-pi-nix; }; };
+        specialArgs = { 
+          inputs = { 
+            inherit raspberry-pi-nix self; 
+          }; 
+        };
         modules = [
           raspberry-pi-nix.nixosModules.raspberry-pi
+          raspberry-pi-nix.nixosModules.sd-image
           ./default.nix
         ];
       };
