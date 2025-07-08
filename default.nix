@@ -1,24 +1,14 @@
+# configuration.nix (rename your file to this)
 {
   inputs,
-  nixosModules,
   pkgs,
+  lib,
   ...
 }:
 
 {
-  imports = with nixosModules; [
+  imports = [
     ./disks.nix
-    (inputs.self.lib.syncRegistry {
-      inherit (inputs)
-        nixpkgs
-        nixpkgs-unstable
-        home-manager
-        flake-parts
-        ;
-    })
-    base
-    config-flake
-    rpi
   ];
 
   boot = {
@@ -26,17 +16,15 @@
       grub.enable = false;
     };
 
-    # consoleLogLevel = lib.mkDefault 7;
     kernelParams = [
       "console=tty1"
-      # https://github.com/raspberrypi/firmware/issues/1539#issuecomment-784498108
       "console=serial0,115200n8"
     ];
 
     kernelPackages = pkgs.linuxPackagesFor pkgs.rpi-kernels.v6_12_17.bcm2711;
-    # kernelPackages = pkgs.linuxPackages_rpi4;
+    
     initrd.availableKernelModules = [
-      "pcie_brcmstb" # required for the pcie bus to work
+      "pcie_brcmstb"     # required for the pcie bus to work
       "reset-raspberrypi" # required for vl805 firmware to load
       "usb_storage"
       "usbhid"
@@ -44,14 +32,28 @@
     ];
   };
 
-  environment = {
-    etc."nixos".source = "/persistent/nixos";
-
-    systemPackages = with pkgs; [
-      nnn
-      xplr
-    ];
+  # Networking
+  networking = {
+    hostName = "kiggymedia";
+    useDHCP = false;
+    interfaces = {
+      eth0.useDHCP = true;
+      wlan0.useDHCP = true;
+    };
+    wireless = {
+      enable = true;
+      networks = {
+        "FiOS-WTPA7" = {
+          psk = "munch386wire040jag";
+        };
+      };
+    };
   };
+
+  environment.systemPackages = with pkgs; [
+    vim
+    htop
+  ];
 
   hardware.enableRedistributableFirmware = true;
 
@@ -60,29 +62,25 @@
     overlays = [ inputs.raspberry-pi-nix.overlays.core ];
   };
 
-  nix.settings.flake-registry = "";
-
   raspberry-pi = {
     loader.enable = true;
   };
 
-  services = {
-    sshd.enable = true;
-    openssh.settings.PermitRootLogin = "yes";
-  };
-
-  system = {
-    configFlake = inputs.self;
-    dependOnConfigFlakeInputClosure = true;
-    stateVersion = "24.05";
+  services.openssh = {
+    enable = true;
+    settings.PermitRootLogin = "yes";
   };
 
   users.users = {
-    pi = {
-      isNormalUser = true;
-      extraGroups = [ "wheel" ];
-      password = "nixos";
+    root = {
+      initialPassword = "root";
+      openssh.authorizedKeys.keys = [
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFpeoFztO2Jhgk0dIfV3s41H8qFCmy8YTBT1idaiD3Mm faycarsons23@gmail.com"
+      ];
     };
   };
-}
 
+  system = {
+    stateVersion = "24.11";
+  };
+}
