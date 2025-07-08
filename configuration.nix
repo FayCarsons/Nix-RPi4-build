@@ -1,62 +1,115 @@
-{ config, pkgs, lib, ... }: {
-  # Remove the sd-card import - the flake handles this now
-  # imports = [
-  #   "${modulesPath}/installer/sd-card/sd-image-aarch64.nix"
-  # ];
+{ pkgs, ... }: {
+  system.stateVersion = "24.11";
+  
+  # Basic system settings
+  time.timeZone = "America/New_York";
+  users.users.root = {
+    initialPassword = "root";
+    openssh.authorizedKeys.keys = [
+      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFpeoFztO2Jhgk0dIfV3s41H8qFCmy8YTBT1idaiD3Mm faycarsons23@gmail.com"
+    ];
+  };
 
-  # Pi 4 specific configuration
-  hardware.raspberry-pi.config = {
-    all = {
-      options = {
-        # Enable serial console
-        enable_uart = {
-          enable = true;
-          value = true;
-        };
-        # Use 64-bit mode
-        arm_64bit = {
-          enable = true;
-          value = true;
+  services.openssh = {
+    enable = true;
+    settings = {
+      PermitRootLogin = "yes";
+      PasswordAuthentication = true;
+    };
+  };
+  
+  # Networking configuration
+  networking = {
+    hostName = "kiggymedia";
+    useDHCP = false;
+    interfaces = {
+      eth0.useDHCP = true;
+      wlan0.useDHCP = true;
+    };
+
+    wireless = {
+      enable = true;
+      networks = {
+        "FiOS-WTPA7" = {
+          psk = "munch386wire040jag";
         };
       };
     };
   };
 
-  # Boot configuration - let raspberry-pi-nix handle this
-  boot.supportedFilesystems.zfs = lib.mkForce false;
+  # Raspberry Pi 4 board configuration
+  raspberry-pi-nix.board = "bcm2711";
   
-  # Serial console for debugging
-  boot.kernelParams = [ 
-    "console=ttyAMA0,115200" 
-    "console=tty0" 
-    "loglevel=7"
-  ];
-  
-  # SD image settings
-  sdImage.compressImage = false;
-  
-  nixpkgs.hostPlatform = "aarch64-linux";
-  nixpkgs.config.allowUnfree = true;
-  
-  networking = {
-    hostName = "media-server";
-    networkmanager.enable = true;
+  hardware = {
+    raspberry-pi = {
+      config = {
+        all = {
+          base-dt-params = {
+            BOOT_UART = {
+              value = 1;
+              enable = true;
+            };
+            uart_2ndstage = {
+              value = 1;
+              enable = true;
+            };
+          };
+          dt-overlays = {
+            disable-bt = {
+              enable = true;
+              params = { };
+            };
+          };
+          # Using default direct kernel boot (no u-boot)
+        };
+      };
+    };
   };
 
-  environment.systemPackages = with pkgs; [
-    libraspberrypi
-    raspberrypi-eeprom
+  # Enhanced serial console and debug configuration
+  boot.kernelParams = [ 
+    "console=serial0,115200" 
+    "console=tty1"
+    "debug"
+    "ignore_loglevel"
+    "earlycon=uart8250,mmio32,0xfe215040"
+    "loglevel=7"
+    "earlyprintk"
   ];
+
+  # Disable all graphics/desktop stuff
+  services.xserver.enable = false;
+  hardware.opengl.enable = false;
   
-  services.jellyfin.enable = true;
-  services.openssh.enable = true;
+  # Disable audio entirely
+  hardware.pulseaudio.enable = false;
+  security.rtkit.enable = false;
+  services.pipewire.enable = false;
   
-  users.users.pi = {
-    isNormalUser = true;
-    extraGroups = ["wheel" "networkmanager"];
-    initialHashedPassword = "";
-  };
+  # Minimal packages
+  environment.systemPackages = with pkgs; [
+    vim
+    git
+    htop
+    screen  # Useful for serial console sessions
+  ];
+
+  # Reduce system size and disable unnecessary features
+  documentation.enable = false;
+  documentation.nixos.enable = false;
   
-  hardware.enableRedistributableFirmware = true;
-  system.stateVersion = "24.11";
+  # Disable unnecessary services
+  services.udisks2.enable = false;
+  programs.command-not-found.enable = false;
+  xdg.autostart.enable = false;
+  xdg.mime.enable = false;
+  xdg.icons.enable = false;
+  xdg.sounds.enable = false;
+  
+  # Disable bluetooth completely
+  hardware.bluetooth.enable = false;
+  
+  # Minimal locale settings
+  i18n.defaultLocale = "en_US.UTF-8";
+  i18n.supportedLocales = [ "en_US.UTF-8/UTF-8" ];
 }

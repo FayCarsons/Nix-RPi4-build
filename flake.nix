@@ -6,14 +6,19 @@
     raspberry-pi-nix.url = "github:nix-community/raspberry-pi-nix";
   };
 
-  outputs = { self, nixpkgs, raspberry-pi-nix }: {
-    nixosConfigurations.raspberry-pi = nixpkgs.lib.nixosSystem {
+  outputs = { self, nixpkgs, raspberry-pi-nix }:
+    let
       system = "aarch64-linux";
-      modules = [
-        raspberry-pi-nix.nixosModules.raspberry-pi
-        raspberry-pi-nix.nixosModules.sd-image
-        ./configuration.nix
-      ];
+    in {
+      nixosConfigurations = {
+        rpi4 = nixpkgs.lib.nixosSystem {
+          inherit system;
+          modules = [
+            raspberry-pi-nix.nixosModules.raspberry-pi
+            raspberry-pi-nix.nixosModules.sd-image
+            ./configuration.nix
+          ];
+        };
+      };
     };
-  };
 }
