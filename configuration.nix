@@ -1,95 +1,80 @@
-# configuration.nix - Pi 4 config with custom filesystem layout
-{ pkgs, lib, ... }:
+# configuration.nix - Minimal Pi 4 config based on working examples
+{ config, pkgs, lib, modulesPath, ... }:
 
 {
-  # Custom filesystem layout - might be needed for Pi 4 to boot properly
-  fileSystems = {
-    "/" = {
-      device = "none";
-      fsType = "tmpfs";
-      options = [
-        "defaults"
-        "size=512M"
-        "mode=755"
-      ];
-    };
-    "/persistent" = {
-      device = "/dev/disk/by-label/NIXOS_SD";
-      fsType = "ext4";
-      options = [
-        "data=journal"
-        "noatime"
-      ];
-      neededForBoot = true;
-    };
-    "/nix" = {
-      mountPoint = "/nix";
-      device = "/persistent/nix";
-      fsType = "none";
-      options = [ "bind" ];
-      depends = [ "/persistent" ];
-    };
-    "/boot" = {
-      device = "/dev/disk/by-label/FIRMWARE";
-      fsType = "vfat";
-    };
-  };
+  imports = [
+    # Use the SD card image module
+    "${modulesPath}/installer/sd-card/sd-image-aarch64.nix"
+  ];
 
-  # Use Pi-specific kernel instead of mainline - needed for device tree compatibility
-  boot.kernelPackages = pkgs.linuxPackages_rpi4;
-  
-  # Basic boot configuration
+  # Essential: disable ZFS to avoid build issues
+  boot.supportedFilesystems.zfs = lib.mkForce false;
+
+  # Serial console configuration for headless boot
   boot = {
-    loader.grub.enable = false;
-    loader.generic-extlinux-compatible.enable = true;
-    
     kernelParams = [
       "console=ttyAMA0,115200"
       "console=tty1"
+      "8250.nr_uarts=1"
     ];
     
-    # Essential Pi 4 modules
-    initrd.availableKernelModules = [
-      "pcie_brcmstb"
-      "reset-raspberrypi" 
-      "usb_storage"
-      "usbhid"
-      "vc4"
-    ];
+    # Enable serial console in bootloader
+    loader.raspberryPi.firmwareConfig = ''
+      enable_uart=1
+      dtparam=audio=on
+    '';
   };
 
-  # Disable ZFS to avoid build issues
-  boot.supportedFilesystems = lib.mkForce [ "ext4" "vfat" ];
+  # Enable serial console service
+  systemd.services."serial-getty@ttyAMA0" = {
+    enable = true;
+    wantedBy = [ "getty.target" ];
+    serviceConfig.Restart = "always";
+  };
 
   # Basic networking
   networking = {
     hostName = "kiggymedia";
-    useDHCP = false;
-    interfaces.eth0.useDHCP = true;
+    networkmanager.enable = true;
+    # Disable wifi power saving to prevent connection issues
+    networkmanager.wifi.powersave = false;
   };
 
   # SSH access
   services.openssh = {
     enable = true;
-    settings.PermitRootLogin = "yes";
+    settings = {
+      PermitRootLogin = "yes";
+      PasswordAuthentication = true;
+    };
   };
 
-  # Root user
-  users.users.root = {
-    initialPassword = "root";
+  # Create your user instead of using root
+  users.users.fay = {
+    isNormalUser = true;
+    extraGroups = [ "wheel" "networkmanager" ];
+    initialPassword = "changeme";
     openssh.authorizedKeys.keys = [
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFpeoFztO2Jhgk0dIfV3s41H8qFCmy8YTBT1idaiD3Mm faycarsons23@gmail.com"
     ];
   };
 
-  # Hardware support
+  # Allow passwordless sudo
+  security.sudo.wheelNeedsPassword = false;
+
+  # Enable firmware
   hardware.enableRedistributableFirmware = true;
 
-  # Minimal packages
+  # Useful Pi tools
   environment.systemPackages = with pkgs; [
     vim
     htop
+    libraspberrypi
+    raspberrypi-eeprom
   ];
+
+  # Architecture
+  nixpkgs.hostPlatform = lib.mkDefault "aarch64-linux";
 
   system.stateVersion = "24.11";
 }
