@@ -1,76 +1,115 @@
 {
-  description = "Raspberry Pi 4 NixOS Media Server";
+  description = "Custom NixOS Raspberry Pi image with SSH, WiFi, and proper boot partition";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
   };
 
   outputs = { self, nixpkgs }: {
-    nixosConfigurations.kiggymedia = nixpkgs.lib.nixosSystem {
+    nixosConfigurations.raspberrypi = nixpkgs.lib.nixosSystem {
       system = "aarch64-linux";
       modules = [
-        ({ config, pkgs, lib, modulesPath, ... }: {
-          imports = [
-            # Use the SD card image module
-            "${modulesPath}/installer/sd-card/sd-image-aarch64.nix"
-          ];
-
-          # Essential: disable ZFS to avoid build issues
-          boot.supportedFilesystems.zfs = lib.mkForce false;
-
-          # Serial console configuration for headless boot
-          boot = {
-            kernelParams = [
-              "console=ttyAMA0,115200"
-              "console=tty1"
-              "8250.nr_uarts=1"
-            ];
-            
-            # Enable serial console in bootloader
-            loader.raspberryPi.firmwareConfig = ''
-              enable_uart=1
-              dtparam=audio=on
-            '';
+        "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
+        ({ config, pkgs, ... }: {
+          # Large boot partition (1GB)
+          sdImage = {
+            firmwareSize = 1024; # MB
+            populateFirmwareCommands = "";
+            populateRootCommands = "";
           };
 
-          # Enable serial console service
-          systemd.services."serial-getty@ttyAMA0" = {
-            enable = true;
-            wantedBy = [ "getty.target" ];
-            serviceConfig.Restart = "always";
-          };
+          services.xserver.enable = false;
+          hardware.pulseaudio.enable = false;
+          hardware.bluetooth.enable = false;
 
-          # Basic networking
-          networking = {
-            hostName = "kiggymedia";
-            networkmanager.enable = true;
-            networkmanager.wifi.powersave = false;
-          };
+          boot.loader.grub.enable = false;
+          boot.loader.generic-extlinux-compatible.enable = true;
 
-          # SSH access
           services.openssh = {
             enable = true;
             settings = {
-              PermitRootLogin = "yes";
               PasswordAuthentication = true;
+              PermitRootLogin = "yes";
+              KbdInteractiveAuthentication = true;
             };
+            openFirewall = true;
           };
 
-          # Create your user instead of using root
+          networking = {
+            hostName = "raspberrypi";
+            wireless = {
+              enable = true;
+              networks."FiOS-WTPA7".psk = "munch386wire040jag";
+            };
+
+            networkmanager.enable = false;
+          };
+
+          # Create user account
           users.users.fay = {
             isNormalUser = true;
             extraGroups = [ "wheel" "networkmanager" ];
-            initialPassword = "changeme";
+            initialPassword = "kiggy";
+            
             openssh.authorizedKeys.keys = [
-              "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFpeoFztO2Jhgk0dIfV3s41H8qFCmy8YTBT1idaiD3Mm faycarsons23@gmail.com"
+              "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFpeoFztO2Jhgk0dIfV3s41H8qFCmy8YTBT1idaiD3Mm faycarsons23@gmail.com"             
             ];
           };
 
-          # Allow passwordless sudo
-          security.sudo.wheelNeedsPassword = false;
+          environment.systemPackages = with pkgs; [
+            vim
+            git
+            htop
+            curl
+            wget
+            rsync
+            tmux
+          ];
 
-          # Enable firmware
+          # Enable flakes and new nix commands
+          nix.settings = {
+            experimental-features = [ "nix-command" "flakes" ];
+            auto-optimise-store = true;
+            # Optimize for limited resources
+            max-jobs = 2;
+            cores = 0; # Use all available cores per job
+          };
+
+          # More aggressive garbage collection for headless
+          nix.gc = {
+            automatic = true;
+            dates = "daily";
+            options = "--delete-older-than 7d";
+          };
+
+          # Set timezone
+          time.timeZone = "America/New_York"; # Change to your timezone
+
+          # Enable hardware-specific optimizations
           hardware.enableRedistributableFirmware = true;
+          
+          services.journald.extraConfig = ''
+            SystemMaxUse=100M
+            MaxRetentionSec=1month
+          '';
+          
+          boot.kernelParams = [ "console=serial0,115200" "console=tty1" ];
+          
+          networking.firewall = {
+            enable = true;
+            allowedTCPPorts = [ 22 ]; # SSH
+          };
 
-          # Enable binary cache and flakes
-          nix = {
+          system.stateVersion = "24.11";
+        })
+      ];
+    };
+
+    # Make the SD card image easily buildable
+    packages.aarch64-linux.default = self.nixosConfigurations.raspberrypi.config.system.build.sdImage;
+
+    # For convenience, also expose it for other architectures during cross-compilation
+    packages.x86_64-linux.default = self.nixosConfigurations.raspberrypi.config.system.build.sdImage;
+    packages.aarch64-darwin.default = self.nixosConfigurations.raspberrypi.config.system.build.sdImage;
+  };
+}
