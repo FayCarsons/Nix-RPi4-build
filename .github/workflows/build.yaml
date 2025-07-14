@@ -1,19 +1,17 @@
 name: Build RPi Image
-on: [push]
+on: [push, workflow_dispatch]  # Added manual trigger
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
     
-    # Set up QEMU for emulation
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v3
       with:
         platforms: arm64
     
-    # Install Nix with proper settings
-    - uses: cachix/install-nix-action@v22
+    - uses: cachix/install-nix-action@v23  # Updated version
       with:
         extra_nix_config: |
           experimental-features = nix-command flakes
@@ -21,18 +19,14 @@ jobs:
           system-features = nixos-test benchmark big-parallel kvm
           sandbox = relaxed
     
-    # Add cachix for nix-community cache
     - uses: cachix/cachix-action@v12
       with:
         name: nix-community
-        # No auth token needed for public cache
     
-    # Build with explicit system specification
     - name: Build NixOS image
       run: |
-        nix build '.#nixosConfigurations.raspberry-pi.config.system.build.sdImage' \
+        nix build '.#default' \
           --system aarch64-linux \
-          --impure \
           --print-build-logs
     
     - uses: actions/upload-artifact@v4
